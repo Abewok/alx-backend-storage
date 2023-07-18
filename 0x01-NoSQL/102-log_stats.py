@@ -1,23 +1,47 @@
 #!/usr/bin/env python3
-
-'''A Python module tha provides stats about nginx'''
-
+"""Improved log stats module"""
 from pymongo import MongoClient
 
 
-if __name__ == '__main__':
-    '''Prints the log stats in nginx collection'''
-    con = MongoClient('mongodb://localhost:27017')
-    collection = con.logs.nginx
+if __name__ == "__main__":
+    client = MongoClient('mongodb://127.0.0.1:27017')
+    db = client.logs.nginx
 
-    print(f'{collection.estimated_document_count()} logs')
+    num_logs = db.count_documents({})
+    print(f"{num_logs} logs")
 
-    methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
-    print('Methods:')
+    get = db.count_documents({'method': 'GET'})
+    post = db.count_documents({'method': 'POST'})
+    put = db.count_documents({'method': 'PUT'})
+    patch = db.count_documents({'method': 'PATCH'})
+    delete = db.count_documents({'method': 'DELETE'})
 
-    for req in methods:
-        print('\tmethods {}: {}'.format(req,
-              collection.count_documents({'method': req})))
+    print("Methods:")
+    print(f"\tmethod GET: {get}")
+    print(f"\tmethod POST: {post}")
+    print(f"\tmethod PUT: {put}")
+    print(f"\tmethod PATCH: {patch}")
+    print(f"\tmethod DELETE: {delete}")
 
-    print('{} status check'.format(collection.count_documents(
-          {'method': 'GET', 'path': '/status'})))
+    status = db.count_documents({'method': 'GET', 'path': '/status'})
+    print(f"{status} status check")
+
+    print("IPs:")
+    ips = db.aggregate([
+        {"$group":
+            {
+                "_id": "$ip",
+                "count": {"$sum": 1}
+            }
+         },
+        {"$sort": {"count": -1}},
+        {"$limit": 10},
+        {"$project": {
+            "_id": 0,
+            "ip": "$_id",
+            "count": 1
+        }}
+    ])
+
+    for ip in ips:
+        print(f"\t{ip.get('ip')}: {ip.get('count')}")
